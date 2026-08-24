@@ -1,0 +1,50 @@
+# Production stack for the VM. Host nginx (see infra/) reverse-proxies to the
+# backend/frontend containers below, both bound to localhost only.
+#
+# CI/CD: ssh in, then `git pull && docker compose -f docker-compose.prod.yml up -d --build`
+# (or just run scripts/deploy.sh, which does exactly that).
+services:
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: routerpoc
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - routerpoc_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: ./backend
+    restart: unless-stopped
+    env_file:
+      - ./backend/.env
+    environment:
+      # Overrides the localhost value from backend/.env — inside the compose
+      # network the DB is reachable at the "postgres" service name.
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/routerpoc
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:8000:8000"
+
+  frontend:
+    build:
+      context: ./frontend
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3000:80"
+    depends_on:
+      - backend
+
+volumes:
+  routerpoc_pgdata:
