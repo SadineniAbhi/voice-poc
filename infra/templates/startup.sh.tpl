@@ -30,11 +30,9 @@ if [ ! -d "$APP_DIR/.git" ]; then
 fi
 chown -R ${ssh_username}:${ssh_username} "$APP_DIR"
 
-# --- env file placeholder (gitignored, so `git pull` never touches it again) ---
-if [ ! -f "$APP_DIR/backend/.env" ]; then
-  cp "$APP_DIR/backend/example.env" "$APP_DIR/backend/.env"
-  echo "*** backend/.env created from example.env — set OPENAI_API_KEY, then re-run docker compose ***"
-fi
+# OPENAI_API_KEY isn't set yet on first boot — that's fine, the backend
+# starts without it (see DEPLOY.md to set it via a project-root .env file,
+# then redeploy).
 
 # --- host nginx reverse proxy: plain HTTP for now, TLS added by scripts/init-tls.sh ---
 cat > /etc/nginx/sites-available/app.conf <<'NGINX'

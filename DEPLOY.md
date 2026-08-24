@@ -37,14 +37,20 @@ before TLS is on.
 
 ## 3. Set the OpenAI key
 
+`docker-compose.prod.yml` reads `OPENAI_API_KEY` (and a few other vars) via
+`${OPENAI_API_KEY}` substitution, which `docker compose` fills from either
+the shell environment or a `.env` file sitting next to the compose file —
+here that's `/opt/app/.env` (project root, **not** `backend/.env`). Create
+it once on the VM:
+
 ```bash
 ssh abhi@<vm_public_ip>
-sudoedit /opt/app/backend/.env   # set OPENAI_API_KEY
+echo 'OPENAI_API_KEY=sk-...' >> /opt/app/.env
 cd /opt/app && docker compose -f docker-compose.prod.yml up -d backend
 ```
 
-(`.env` is gitignored, created once from `example.env` by the startup
-script, and untouched by future `git pull`s.)
+It's a plain file owned by you, gitignored, and untouched by future
+`git pull`s — no `sudo` needed to edit it.
 
 ## 4. Get a TLS cert
 
@@ -61,13 +67,15 @@ HTTPS on 443 and redirect 80 → 443. Renewal happens automatically via the
 
 ## 5. CI/CD deploys
 
-Whatever ships new code just needs to SSH in and run:
+Run this from your machine (or a CI runner with SSH access) — it SSHes in
+for you:
 
 ```bash
-ssh abhi@<vm_public_ip> 'cd /opt/app && ./scripts/deploy.sh'
+./scripts/deploy.sh
+# or: VM_HOST=abhi@<vm_public_ip> ./scripts/deploy.sh
 ```
 
-which is just `git pull --ff-only && docker compose -f docker-compose.prod.yml up -d --build`
+which remotely runs `git pull --ff-only && docker compose -f docker-compose.prod.yml up -d --build`
 plus an image prune to keep the small disk from filling up.
 
 ## Notes / tradeoffs

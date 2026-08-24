@@ -1,12 +1,19 @@
 #!/bin/bash
-# CI/CD entrypoint: ssh into the VM and run this (or run its two lines by hand).
-#   ssh abhi@<vm-ip> 'cd /opt/app && ./scripts/deploy.sh'
+# CI/CD entrypoint — run this from your machine (or a CI runner with SSH
+# access), not on the VM. SSHes in, pulls latest, rebuilds/restarts the
+# compose stack, and prunes dangling images to keep the small disk clear.
+#
+#   ./scripts/deploy.sh
+#   VM_HOST=abhi@1.2.3.4 ./scripts/deploy.sh   # override target
 set -euo pipefail
-cd "$(dirname "$0")/.."
 
-git pull --ff-only
-docker compose -f docker-compose.prod.yml up -d --build
+VM_HOST="${VM_HOST:-abhi@136.65.132.114}"
+APP_DIR="${APP_DIR:-/opt/app}"
 
-# Free disk space on the small boot disk — drop dangling images left behind
-# by the rebuild.
-docker image prune -f
+ssh "$VM_HOST" "
+  set -euo pipefail
+  cd '$APP_DIR'
+  git pull --ff-only
+  docker compose -f docker-compose.prod.yml up -d --build
+  docker image prune -f
+"
